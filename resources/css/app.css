@@ -1,0 +1,853 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* ==========================================================
+   Design tokens — single source of truth for color and type
+   across the dashboard shell, shared components, and every
+   page-local <style> block. Deliberately unlayered: per-page
+   <style> blocks are also unlayered, and an @layer rule always
+   loses to an unlayered one regardless of source order, so
+   these must stay outside @layer to be overridable per-page
+   while still winning as the default.
+   Excluded on purpose: resources/views/pdf/report_card.blade.php
+   and resources/views/emails/password-reset-otp.blade.php, which
+   render outside the browser (PDF engine / mail clients) and
+   cannot resolve CSS custom properties — they keep literal hex.
+
+   THEMING: the dark palette lives in the :root[data-theme="dark"]
+   block directly below. It must stay unlayered for the same reason
+   as :root, and it wins by SPECIFICITY (0,1,1 vs 0,1,0) rather than
+   source order — so a page-local <style> that overrides a token
+   still wins in both themes. Only color-valued tokens are redefined
+   there; geometry and type tokens are theme-independent and are
+   declared once in :root.
+
+   To re-palette the whole app, edit these two blocks only.
+   ========================================================== */
+:root {
+    color-scheme: light;
+
+    --sidebar-width: 260px;
+    --topbar-height: 64px;
+
+    /* brand — deep academic forest green, replacing indigo */
+    --primary: #2F5233;
+    --primary-dark: #1E3722;
+    --primary-light: #6B9C63;
+    --primary-tint: #EAF1E7;
+    --accent: #B8863B;
+    --accent-dark: #93692C;
+    --accent-tint: #F7EEDD;
+
+    /* surfaces — warm paper, not cold slate */
+    --surface: #FFFFFF;
+    --surface-2: #F5F1E8;
+    --surface-3: #FAF7F0;
+    --border: #E7E2D6;
+    --border-soft: #EFEBE0;
+
+    /* text */
+    --text-primary: #1C2321;
+    --text-secondary: #6B7280;
+    --text-muted: #97948C;
+    --text-strong: #3A3A34;
+    --text-faint: #D8D3C5;
+
+    /* semantic — kept as distinct status hues, warmed at the tint level */
+    --success: #3F7D4C;
+    --success-dark: #2F5F3A;
+    --success-tint: #EAF3EA;
+    --success-border: #B9D8BD;
+    --success-text: #244A2C;
+
+    --danger: #B5533C;
+    --danger-dark: #8F3F2C;
+    --danger-tint: #F8EAE6;
+    --danger-border: #E3B6A7;
+    --danger-text: #6E2E1F;
+
+    --warning: #B8863B;
+    --warning-dark: #93692C;
+    --warning-tint: #F7EEDD;
+    --warning-border: #E3C989;
+    --warning-text: #6B4E1F;
+
+    /* sidebar */
+    --sidebar-bg: #1C2321;
+    --sidebar-text: #D3DED0;
+    --sidebar-text-dim: #9BB093;
+    --sidebar-active: #2F5233;
+    --sidebar-hover: rgba(107, 156, 99, 0.18);
+
+    /* type */
+    --font-display: 'Fraunces', 'Cairo', serif;
+    --font-display-rtl: 'Cairo', sans-serif;
+    --font-body: 'Inter', 'Cairo', sans-serif;
+
+    /* interaction — semantic aliases so states are themeable centrally
+       rather than being re-derived with literal colors per page */
+    --input-bg: var(--surface-3);
+    --input-bg-focus: var(--surface);
+    --input-border: var(--border);
+    --hover-surface: var(--surface-2);
+    --focus-ring: color-mix(in srgb, var(--primary) 10%, transparent);
+    --overlay: rgba(0, 0, 0, 0.45);
+    --disabled-bg: var(--surface-2);
+    --disabled-text: var(--text-muted);
+    --selected-bg: var(--primary-tint);
+
+    /* secondary — the brass accent acting as the secondary brand role */
+    --secondary: var(--accent);
+    --secondary-dark: var(--accent-dark);
+    --secondary-tint: var(--accent-tint);
+
+    /* categorical tints — role badges, stat cards and calendar chips.
+       Named by role, not by hue, so dark mode can re-tone them. */
+    --info: #3b82f6;
+    --info-dark: #2563eb;
+    --info-strong: #1d4ed8;
+    --info-tint: #eff6ff;
+    --info-tint-2: #dbeafe;
+    --info-border: #93c5fd;
+
+    --violet: #9333ea;
+    --violet-dark: #7c3aed;
+    --violet-strong: #6b21a8;
+    --violet-tint: #faf5ff;
+
+    --rose: #f43f5e;
+    --rose-dark: #e11d48;
+
+    /* pink — the exam/event category. A distinct hue from --danger on purpose:
+       an exam is a category, not an error. Light values are the pre-dark-mode
+       literals, kept exactly so light mode is unchanged. */
+    --pink-tint: #fce7f3;
+    --pink-border: #f9a8d4;
+    --pink: #db2777;
+    --pink-text: #9d174d;
+
+    /* violet wash — the pale hover tint used by day-tabs and edit buttons.
+       Also the pre-dark-mode literals, preserved verbatim. */
+    --violet-wash: #f5f3ff;
+    --indigo-wash: #e0e7ff;
+    --ember-text: #9a3412;
+
+    /* form system — the single source of truth for every field in a
+       standard form. Values are lifted verbatim from what was
+       admin/assignments/create.blade.php, which is the reference design.
+       Deliberately separate from --radius-control (8px): that token is
+       shared with .btn and the index-page filter bars, and forms use a
+       10px control radius. Changing a value here re-styles every form in
+       the app at once — that is the point of this group.
+       Geometry only; the colour side reuses the interaction aliases above
+       (--input-bg, --input-border, --focus-ring …), which are already
+       re-declared for dark mode. */
+    --field-pad-y: 10px;
+    --field-pad-x: 14px;
+    --field-radius: 10px;
+    --field-border-width: 1.5px;
+    --field-font-size: 14px;
+    --field-min-height: 80px;      /* textarea only */
+    --field-gap: 20px;             /* between one field and the next */
+    --field-label-gap: 8px;        /* label → control */
+    --field-message-gap: 4px;      /* control → error */
+    --field-hint-gap: 6px;         /* control → hint */
+    --field-label-size: 12.5px;
+    --field-label-weight: 700;
+    --field-label-tracking: 0.5px;
+    --field-message-size: 12px;
+    --field-hint-size: 12px;
+
+    /* radius / shadow */
+    --radius-card: 14px;
+    --radius-control: 8px;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --shadow-modal: 0 24px 70px rgba(23, 32, 51, 0.08);
+    --shadow-auth: 0 4px 24px rgba(0, 0, 0, 0.07);
+    --on-primary: #FFFFFF;
+}
+
+/* ==========================================================
+   DARK THEME
+   Stamped as data-theme="dark" on <html> by the inline
+   pre-paint script in each shell (see layouts/app.blade.php).
+   Warm-dark, not slate: the light palette is warm paper, so a
+   naive slate inversion would drop the brand character.
+   Status triplets get their own darker tints and lighter text
+   rather than reusing the light values, which would glare.
+   ========================================================== */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* brand — lifted for contrast against dark surfaces */
+    --primary: #7FAF77;
+    --primary-dark: #9BC493;
+    --primary-light: #A8CFA0;
+    --primary-tint: #1F2A20;
+    --accent: #D3A45C;
+    --accent-dark: #E2BA7C;
+    --accent-tint: #2C2417;
+
+    /* surfaces — warm charcoal, tinted toward the paper hue */
+    --surface: #1B201D;
+    --surface-2: #141815;
+    --surface-3: #232925;
+    --border: #333B34;
+    --border-soft: #2A312C;
+
+    /* text */
+    --text-primary: #E8EAE4;
+    --text-secondary: #A8AFA6;
+    --text-muted: #8A9188;
+    --text-strong: #D2D6CD;
+    --text-faint: #5A6058;
+
+    /* semantic — darker tints, lighter text (inverse of light mode) */
+    --success: #6FAF7C;
+    --success-dark: #8AC495;
+    --success-tint: #1A2A1E;
+    --success-border: #2F4D36;
+    --success-text: #A9D6B2;
+
+    --danger: #D98570;
+    --danger-dark: #E7A08D;
+    --danger-tint: #2C1B17;
+    --danger-border: #573328;
+    --danger-text: #EDB5A4;
+
+    --warning: #D3A45C;
+    --warning-dark: #E2BA7C;
+    --warning-tint: #2C2417;
+    --warning-border: #55442A;
+    --warning-text: #E8C88E;
+
+    /* sidebar — kept darker than the content surface so the shell
+       still reads as a distinct plane rather than merging with it */
+    --sidebar-bg: #0F1310;
+    --sidebar-text: #C3CFC0;
+    --sidebar-text-dim: #8BA083;
+    --sidebar-active: #2F5233;
+    --sidebar-hover: rgba(127, 175, 119, 0.16);
+
+    /* interaction */
+    --input-bg: #232925;
+    --input-bg-focus: #2A312C;
+    --input-border: #3B443C;
+    --hover-surface: #232925;
+    --focus-ring: color-mix(in srgb, var(--primary) 22%, transparent);
+    --overlay: rgba(0, 0, 0, 0.65);
+    --disabled-bg: #232925;
+    --disabled-text: #6E756C;
+    --selected-bg: #253026;
+
+    /* categorical tints — desaturated so they sit on dark without glare */
+    --info: #6BA6F5;
+    --info-dark: #8CBCF8;
+    --info-strong: #A9CDFA;
+    --info-tint: #16202E;
+    --info-tint-2: #1B2A3D;
+    --info-border: #2F4A6B;
+
+    --violet: #B27DEA;
+    --violet-dark: #C79CF1;
+    --violet-strong: #D6B5F5;
+    --violet-tint: #241B2E;
+
+    --rose: #F0798D;
+    --rose-dark: #F49BAA;
+
+    --pink-tint: #2E1A24;
+    --pink-border: #5A3145;
+    --pink: #EE86B4;
+    --pink-text: #F4A9C6;
+
+    --violet-wash: #241B2E;
+    --indigo-wash: #1E2036;
+    --ember-text: #E0A87C;
+
+    /* shadow — opacity alone is invisible on dark, so these deepen */
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-modal: 0 24px 70px rgba(0, 0, 0, 0.6);
+    --shadow-auth: 0 4px 24px rgba(0, 0, 0, 0.55);
+    --on-primary: #10160F;
+}
+
+/* RTL: div-based display headings (not real h1/h2/h3) fall through
+   to a Latin-only serif unless targeted by class here. Must live in
+   this unlayered block, not @layer components — an unlayered rule
+   in a page-local <style> would otherwise always win regardless of
+   specificity or source order. */
+[dir="rtl"] .page-title,
+[dir="rtl"] .dash-card-ttl,
+[dir="rtl"] .section-title,
+[dir="rtl"] .table-title,
+[dir="rtl"] .logo-text,
+[dir="rtl"] .form-title,
+[dir="rtl"] .brand-name,
+[dir="rtl"] .brand-headline,
+[dir="rtl"] .rtl-display {
+    font-family: var(--font-display-rtl);
+}
+
+/* Horizontal scroll container for wide tables on narrow screens.
+   Unlayered on purpose: `.table-card` sets `overflow: hidden`, and several
+   pages redefine `.table-card` in their own unlayered <style> block, so a
+   rule in @layer components would lose to them and the table would stay
+   clipped. Put this on a wrapper *inside* the card — the card keeps its
+   rounded corners while the table scrolls instead of being cut off.
+   -webkit-overflow-scrolling keeps momentum scrolling on iOS Safari. */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ==========================================================
+   Shared UI utilities — promoted from per-page <style> blocks.
+   Only classes that were byte-for-byte identical across all
+   callers are here. Divergent classes stay page-local.
+   ========================================================== */
+@layer components {
+
+    /* ── Page chrome ── */
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .page-title {
+        font-family: var(--font-display);
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .filter-card,
+    .child-selector {
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-card);
+    }
+
+    .filter-select,
+    .filter-input {
+        /* min() keeps the 180px floor on desktop but lets the control shrink
+           inside a narrower flex row rather than forcing an overflow. */
+        min-width: min(180px, 100%);
+        max-width: 100%;
+        padding: 9px 14px;
+        border: 1.5px solid var(--input-border);
+        border-radius: var(--radius-control);
+        outline: none;
+        background: var(--input-bg);
+        color: var(--text-strong);
+        font-family: var(--font-body);
+        font-size: 13.5px;
+        transition: border 0.2s, box-shadow 0.2s;
+    }
+
+    .filter-select:focus,
+    .filter-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-card);
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 18px;
+        border: 0;
+        border-radius: var(--radius-control);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background 0.2s;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: var(--on-primary);
+    }
+
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    .btn-outline {
+        border: 1.5px solid var(--primary);
+        background: var(--surface);
+        color: var(--primary);
+    }
+
+    .btn-outline:hover { background: var(--primary-tint); }
+
+    .empty-state {
+        padding: 48px 20px;
+        color: var(--text-muted);
+        text-align: center;
+    }
+
+    .empty-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 14px;
+        border-radius: 50%;
+        background: var(--border-soft);
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: var(--overlay);
+    }
+
+    .modal-overlay.open,
+    .modal-overlay.active { display: flex; }
+
+    /* ── Page chrome ── */
+    .page-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .page-desc {
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    /* ── Tables ── */
+    .table-card {
+        background: var(--surface);
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-card);
+        overflow: hidden;
+    }
+
+    .table-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    .table-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .table-meta {
+        font-size: 12.5px;
+        color: var(--text-muted);
+    }
+
+    .pagination-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border-soft);
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    /* ── Filters ── */
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+    }
+
+    .filter-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    /* ── Buttons ── */
+    .btn-primary svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .btn-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 28px;
+    }
+
+    /* ── Detail cards ── */
+    .detail-card {
+        background: var(--surface);
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-card);
+        overflow: hidden;
+        max-width: 640px;
+    }
+
+    .detail-body {
+        padding: 0;
+    }
+
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+
+
+    /* ── Dashboard cards ── */
+    .dash-card {
+        background: var(--surface);
+        border-radius: var(--radius-card);
+        padding: 24px;
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-card);
+    }
+
+    .dash-card-hdr {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .dash-card-ico {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .dash-card-ttl {
+        font-family: var(--font-display);
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .dash-card-sub {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .dash-card-empty {
+        text-align: center;
+        padding: 20px;
+        color: var(--text-faint);
+        font-size: 13px;
+    }
+
+    /* ── Empty states ── */
+    .empty-title {
+        font-weight: 700;
+        color: var(--text-primary);
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+
+    .empty-desc {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+    /* ==========================================================
+       Shared form system — owned by the <x-ui.form.*> components.
+       Pages describe fields; this block owns how they look. To
+       restyle every form in the app, edit the --field-* tokens in
+       :root, not the pages.
+
+       Legacy note: this replaces the old `.form-group input,
+       .form-group select` fallback, which never covered <textarea>
+       (why calendar/create used to re-declare its own controls).
+       ========================================================== */
+
+    /* Card the fields sit in */
+    .form-card {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-card);
+        padding: 28px;
+    }
+
+    /* One field: label, control, then hint/error */
+    .form-field {
+        margin-bottom: var(--field-gap);
+    }
+
+    .form-field:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: var(--field-label-gap);
+        color: var(--text-strong);
+        font-size: var(--field-label-size);
+        font-weight: var(--field-label-weight);
+        letter-spacing: var(--field-label-tracking);
+        text-transform: uppercase;
+    }
+
+    .form-label .req {
+        margin-inline-start: 2px;
+        color: var(--danger);
+    }
+
+    /* Every standard control — text/number/email/password/date/search
+       inputs, selects and textareas — resolves to this one rule. */
+    .form-control {
+        width: 100%;
+        padding: var(--field-pad-y) var(--field-pad-x);
+        /* Longhands, not the `border` shorthand: Tailwind's preflight sets
+           `border: 0 solid` on *, and the shorthand loses the token width
+           against it. Setting width/style/color explicitly holds 1.5px. */
+        border-width: var(--field-border-width);
+        border-style: solid;
+        border-color: var(--input-border);
+        border-radius: var(--field-radius);
+        background: var(--input-bg);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        font-size: var(--field-font-size);
+        outline: none;
+        transition: all 0.2s;
+    }
+
+    .form-control::placeholder {
+        color: var(--text-muted);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary);
+        background: var(--input-bg-focus);
+        box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    .form-control:disabled {
+        background: var(--disabled-bg);
+        color: var(--disabled-text);
+        cursor: not-allowed;
+    }
+
+    /* Invalid: red border in both rest and focus, so the error state
+       is not masked the moment the user clicks back into the field. */
+    .form-control.is-error {
+        border-color: var(--danger);
+    }
+
+    .form-control.is-error:focus {
+        border-color: var(--danger);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent);
+    }
+
+    /* Select — native arrow replaced with the shared chevron */
+    select.form-control {
+        appearance: none;
+        padding-inline-end: calc(var(--field-pad-x) + 20px);
+        background-image: url("data:image/svg+xml,%3Csvg fill='none' stroke='%2394a3b8' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 18px;
+        cursor: pointer;
+    }
+
+    [dir="rtl"] select.form-control {
+        background-position: left 12px center;
+    }
+
+    select.form-control optgroup {
+        font-weight: 700;
+        color: var(--text-strong);
+    }
+
+    select.form-control option[value=""] {
+        color: var(--text-muted);
+    }
+
+    textarea.form-control {
+        min-height: var(--field-min-height);
+        resize: vertical;
+    }
+
+    .form-hint {
+        margin-top: var(--field-hint-gap);
+        color: var(--text-muted);
+        font-size: var(--field-hint-size);
+    }
+
+    .form-error {
+        margin-top: var(--field-message-gap);
+        color: var(--danger-dark);
+        font-size: var(--field-message-size);
+    }
+
+    /* Two-up field row, collapsing on small screens */
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    @media (max-width: 640px) {
+        .form-row { grid-template-columns: 1fr; }
+    }
+
+    /* Checkbox / radio sitting beside its label */
+    .form-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .form-check input[type="checkbox"],
+    .form-check input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+    }
+
+    .form-check label {
+        margin-bottom: 0;
+        text-transform: none;
+        letter-spacing: normal;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Submit / cancel row */
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .btn-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 22px;
+        border: none;
+        border-radius: var(--field-radius);
+        background: var(--primary);
+        color: var(--on-primary);
+        font-family: var(--font-body);
+        font-size: 13.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+
+    .btn-submit:hover {
+        background: var(--primary-dark);
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent);
+        transform: translateY(-1px);
+    }
+
+    .btn-submit svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .btn-cancel {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 22px;
+        border: var(--field-border-width) solid var(--border);
+        border-radius: var(--field-radius);
+        background: transparent;
+        color: var(--text-secondary);
+        font-family: var(--font-body);
+        font-size: 13.5px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-cancel:hover {
+        border-color: var(--text-faint);
+        color: var(--text-strong);
+    }
+
+    /* Summary of all validation errors, shown above the card */
+    .form-error-summary {
+        margin-bottom: var(--field-gap);
+        padding: 12px 16px;
+        border: 1px solid var(--danger-border);
+        border-radius: var(--field-radius);
+        background: var(--danger-tint);
+    }
+
+    .form-error-summary-title {
+        margin-bottom: 4px;
+        color: var(--danger-text);
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .form-error-summary ul {
+        margin: 0;
+        padding-inline-start: 18px;
+        color: var(--danger-dark);
+        font-size: 12.5px;
+    }
+
+}

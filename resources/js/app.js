@@ -1,0 +1,12 @@
+import './bootstrap';
+import './theme';
+import './ui';
+import './forms';
+import './pages/assignments';
+import './pages/attendance';
+import './pages/diagnostic';
+import './pages/exam-types';
+import './pages/parent-attendance';
+import './pages/payments';
+import './pages/schedule';
+import './pages/test-builder';
