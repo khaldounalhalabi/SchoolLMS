@@ -1,34 +1,33 @@
 #!/bin/sh
 set -e
 
-# --------------------------------------------------
-# Fix ownership of mounted volumes (named volumes keep
-# whatever owner they were created with — the image's
-# build-time chown doesn't apply to them)
-# --------------------------------------------------
 chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# --------------------------------------------------
-# Web container initialization
-# --------------------------------------------------
+if [ "$1" != "nginx-php-fpm" ]; then
+    exec su-exec www-data "$@"
+fi
+
 echo "Initializing Laravel..."
 
 rm -f \
     bootstrap/cache/packages.php \
     bootstrap/cache/services.php \
     bootstrap/cache/config.php \
-    bootstrap/cache/routes-v7.php
+    bootstrap/cache/routes-v7.php \
+    bootstrap/cache/routes.php
 
 if [ ! -L public/storage ]; then
-    php artisan storage:link
+    su-exec www-data php artisan storage:link
 fi
 
-php artisan package:discover --ansi
-
-php artisan optimize:clear
+su-exec www-data php artisan package:discover --ansi
+su-exec www-data php artisan optimize:clear
 
 echo "Running database migrations..."
-php artisan migrate --force
+su-exec www-data php artisan migrate --force
 
-echo "Starting Laravel Octane with FrankenPHP..."
-exec php artisan octane:frankenphp --port=80
+su-exec www-data php artisan optimize
+
+echo "Starting PHP-FPM and nginx..."
+php-fpm -D
+exec nginx -g "daemon off;"

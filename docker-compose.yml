@@ -1,12 +1,10 @@
 services:
-
     app:
         build:
             context: .
             dockerfile: Dockerfile
 
         image: lms-app:latest
-
         container_name: lms-app
 
         env_file:
@@ -22,17 +20,15 @@ services:
         depends_on:
             db:
                 condition: service_healthy
-            redis:
-                condition: service_healthy
 
         healthcheck:
             test:
-              [
-                  "CMD",
-                  "curl",
-                  "-f",
-                  "http://localhost:80/up"
-              ]
+                [
+                    "CMD",
+                    "curl",
+                    "-f",
+                    "http://localhost:80/up"
+                ]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -40,10 +36,8 @@ services:
 
         restart: unless-stopped
 
-
     queue:
         image: lms-app:latest
-
         container_name: lms-queue
 
         env_file:
@@ -62,9 +56,7 @@ services:
             - app_bootstrap_cache:/var/www/bootstrap/cache
 
         depends_on:
-            db:
-                condition: service_healthy
-            redis:
+            app:
                 condition: service_healthy
 
         networks:
@@ -72,10 +64,10 @@ services:
 
         healthcheck:
             test:
-              [
-                  "CMD-SHELL",
-                  "pgrep -f 'queue:work' > /dev/null || exit 1"
-              ]
+                [
+                    "CMD-SHELL",
+                    "pgrep -f 'queue:work' > /dev/null || exit 1"
+                ]
             interval: 30s
             timeout: 5s
             retries: 3
@@ -83,10 +75,8 @@ services:
 
         restart: unless-stopped
 
-
     scheduler:
         image: lms-app:latest
-
         container_name: lms-scheduler
 
         env_file:
@@ -102,9 +92,7 @@ services:
             - app_bootstrap_cache:/var/www/bootstrap/cache
 
         depends_on:
-            db:
-                condition: service_healthy
-            redis:
+            app:
                 condition: service_healthy
 
         networks:
@@ -112,10 +100,10 @@ services:
 
         healthcheck:
             test:
-              [
-                  "CMD-SHELL",
-                  "pgrep -f 'schedule:work' > /dev/null || exit 1"
-              ]
+                [
+                    "CMD-SHELL",
+                    "pgrep -f 'schedule:work' > /dev/null || exit 1"
+                ]
             interval: 30s
             timeout: 5s
             retries: 3
@@ -123,10 +111,8 @@ services:
 
         restart: unless-stopped
 
-
     db:
         image: mariadb:11
-
         container_name: lms-db
 
         env_file:
@@ -143,58 +129,14 @@ services:
 
         healthcheck:
             test:
-              [
-                  "CMD-SHELL",
-                  "mariadb-admin ping -h localhost -u root -p$${MARIADB_ROOT_PASSWORD}"
-              ]
+                [
+                    "CMD-SHELL",
+                    "mariadb-admin ping -h localhost -u root -p$${MARIADB_ROOT_PASSWORD}"
+                ]
             interval: 10s
             timeout: 5s
             retries: 10
             start_period: 30s
-
-        restart: unless-stopped
-
-
-    redis:
-        image: redis:7-alpine
-
-        container_name: lms-redis
-
-        env_file:
-            - .env
-
-        expose:
-            - "6379"
-
-        command:
-            - sh
-            - -c
-            - |
-                if [ -n "$${REDIS_PASSWORD}" ]; then
-                    exec redis-server \
-                        --requirepass "$${REDIS_PASSWORD}" \
-                        --appendonly yes
-                else
-                    exec redis-server \
-                        --appendonly yes
-                fi
-
-        volumes:
-            - redis_data:/data
-
-        networks:
-            - lms-internal
-
-        healthcheck:
-            test:
-              [
-                  "CMD-SHELL",
-                  "if [ -n \"$${REDIS_PASSWORD}\" ]; then redis-cli -a \"$${REDIS_PASSWORD}\" ping; else redis-cli ping; fi | grep -q PONG"
-              ]
-            interval: 10s
-            timeout: 5s
-            retries: 10
-            start_period: 10s
 
         restart: unless-stopped
 
@@ -206,4 +148,3 @@ volumes:
     app_storage:
     app_bootstrap_cache:
     db_data:
-    redis_data:
