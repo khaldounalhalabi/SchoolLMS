@@ -10,6 +10,9 @@ services:
         env_file:
             - .env
 
+        expose:
+            - "80"
+
         volumes:
             - app_storage:/var/www/storage
             - app_bootstrap_cache:/var/www/bootstrap/cache
