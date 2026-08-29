@@ -69,22 +69,26 @@ RUN mkdir -p storage/framework/cache/data \
     bootstrap/cache \
     && chown -R www-data:www-data /var/www
 
-# Run as non-root. FrankenPHP images create a www-data user by default;
-# it needs to be able to bind :80, which the base image handles via setcap.
-USER www-data
-
-# Production entrypoint - caches config at runtime using injected env vars,
-# then execs frankenphp (or `php artisan octane:frankenphp`, if you're using
-# Laravel Octane's FrankenPHP driver instead of the bare binary).
-COPY --chown=www-data:www-data docker/entrypoint.sh /usr/local/bin/entrypoint
-USER root
+# ----------------------------
+# Entrypoint
+# ----------------------------
+COPY --chown=www-data:www-data \
+    docker/entrypoint.sh \
+    /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
-USER www-data
+# no USER line here — container starts as root so the entrypoint
+# can chown the mounted volumes, then drops privileges to www-data itself
 
+# ----------------------------
+# FrankenPHP
+# ----------------------------
 EXPOSE 80
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK \
+    --interval=30s \
+    --timeout=5s \
+    --start-period=30s \
+    --retries=3 \
     CMD curl -fsS http://localhost:80/up || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
-CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]
+CMD ["php", "artisan", "octane:frankenphp", "--port=80"]

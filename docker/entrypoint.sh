@@ -1,25 +1,49 @@
 #!/bin/sh
 set -e
 
+# --------------------------------------------------
+# Fix ownership of mounted volumes (named volumes keep
+# whatever owner they were created with — the image's
+# build-time chown doesn't apply to them)
+# --------------------------------------------------
+chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Create the public/storage symlink if it doesn't exist yet.
-if [ ! -L /var/www/public/storage ]; then
-    php artisan storage:link
+# --------------------------------------------------
+# Worker / scheduler containers
+# --------------------------------------------------
+# Only queue:work / schedule:work take the early-exit path.
+# The app container's default CMD (octane:frankenphp) also
+# starts with "php artisan", so we must check the actual
+# subcommand, not just $1.
+# --------------------------------------------------
+if [ "$1" = "php" ] && { [ "$3" = "queue:work" ] || [ "$3" = "schedule:work" ]; }; then
+    exec su-exec www-data "$@"
 fi
 
-# Discover packages and cache Laravel artifacts using the runtime environment.
-# This MUST happen at runtime (not build time) so Dokploy-injected env vars are used.
-php artisan package:discover --ansi
-php artisan optimize:clear
+# --------------------------------------------------
+# Web container initialization
+# --------------------------------------------------
+echo "Initializing Laravel..."
 
-# NOTE: no runtime chown here — the container runs as www-data (non-root),
-# which can't chown at all. Ownership is set once at build time in the
-# Dockerfile. If you later mount a volume over storage/, you'll need to
-# either fix perms on the host or switch the Dockerfile back to root +
-# do the chown here instead.
+rm -f \
+    bootstrap/cache/packages.php \
+    bootstrap/cache/services.php \
+    bootstrap/cache/config.php \
+    bootstrap/cache/routes-v7.php
 
-php artisan migrate --force
+if [ ! -L public/storage ]; then
+    su-exec www-data php artisan storage:link
+fi
 
-# exec replaces the shell process with Octane, so it becomes PID 1 and
-# receives SIGTERM directly from Docker/Dokploy for a clean shutdown.
-exec php artisan octane:frankenphp --port=80
+su-exec www-data php artisan package:discover --ansi
+su-exec www-data composer run add-tcpdf-fonts
+
+su-exec www-data php artisan config:cache
+su-exec www-data php artisan route:cache
+su-exec www-data php artisan view:cache
+
+echo "Running database migrations..."
+su-exec www-data php artisan migrate --force
+
+echo "Starting Laravel Octane with FrankenPHP..."
+exec su-exec www-data php artisan octane:frankenphp --port=80
