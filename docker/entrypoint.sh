@@ -9,18 +9,6 @@ set -e
 chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 # --------------------------------------------------
-# Worker / scheduler containers
-# --------------------------------------------------
-# Only queue:work / schedule:work take the early-exit path.
-# The app container's default CMD (octane:frankenphp) also
-# starts with "php artisan", so we must check the actual
-# subcommand, not just $1.
-# --------------------------------------------------
-if [ "$1" = "php" ] && { [ "$3" = "queue:work" ] || [ "$3" = "schedule:work" ]; }; then
-    exec su-exec www-data "$@"
-fi
-
-# --------------------------------------------------
 # Web container initialization
 # --------------------------------------------------
 echo "Initializing Laravel..."
@@ -35,15 +23,12 @@ if [ ! -L public/storage ]; then
     su-exec www-data php artisan storage:link
 fi
 
-su-exec www-data php artisan package:discover --ansi
-su-exec www-data composer run add-tcpdf-fonts
+php artisan package:discover --ansi
 
-su-exec www-data php artisan config:cache
-su-exec www-data php artisan route:cache
-su-exec www-data php artisan view:cache
+php artisan optimize:clear
 
 echo "Running database migrations..."
-su-exec www-data php artisan migrate --force
+php artisan migrate --force
 
 echo "Starting Laravel Octane with FrankenPHP..."
-exec su-exec www-data php artisan octane:frankenphp --port=80
+exec php artisan octane:frankenphp --port=80
