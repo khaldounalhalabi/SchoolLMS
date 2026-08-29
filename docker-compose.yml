@@ -1,122 +1,214 @@
-# Production Docker Compose stack for Dokploy (and any Docker Compose host).
-# All services live on an internal network; ports are EXPOSED so Dokploy's
-# Traefik reverse-proxy can reach the web service, but nothing is bound to the host.
-#
-# Copy .env.production.example to .env, fill in the secrets and domain, then deploy.
-
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: lms-app
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - app_storage:/var/www/storage
-      - app_bootstrap_cache:/var/www/bootstrap/cache
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - lms
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/up"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-      volumes:
-      - app_storage:/var/www/storage
-      - app_bootstrap_cache:/var/www/bootstrap/cache
 
-  queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: lms-queue
-    restart: unless-stopped
-    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
-    env_file:
-      - .env
-    volumes:
-      - app_storage:/var/www/storage
-      - app_bootstrap_cache:/var/www/bootstrap/cache
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - lms
+    # ==================================================
+    # Laravel Web Application
+    # ==================================================
 
-  scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: lms-scheduler
-    restart: unless-stopped
-    command: >
-      sh -c '
-        while true; do
-          php artisan schedule:run --no-interaction
-          sleep 60
-        done
-      '
-    env_file:
-      - .env
-    volumes:
-      - app_storage:/var/www/storage
-      - app_bootstrap_cache:/var/www/bootstrap/cache
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - lms
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
 
-  db:
-    image: mariadb:11
-    container_name: lms-db
-    restart: unless-stopped
-    expose:
-      - "3306"
-    env_file:
-      - .env
-    volumes:
-      - db_data:/var/lib/mysql
-    networks:
-      - lms
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+        image: lms-app:latest
 
-  redis:
-    image: redis:7-alpine
-    container_name: lms-redis
-    restart: unless-stopped
-    expose:
-      - "6379"
-    networks:
-      - lms
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+        container_name: lms-app
+
+        env_file:
+            - .env
+
+        volumes:
+            - app_storage:/var/www/storage
+            - app_bootstrap_cache:/var/www/bootstrap/cache
+
+        networks:
+            - lms-internal
+
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+        healthcheck:
+            test:
+              [
+                  "CMD",
+                  "curl",
+                  "-f",
+                  "http://localhost:80/up"
+              ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
+
+        restart: unless-stopped
+
+
+    # ==================================================
+    # Laravel Queue Worker
+    # ==================================================
+
+    queue:
+        image: lms-app:latest
+
+        container_name: lms-queue
+
+        env_file:
+            - .env
+
+        command:
+            - php
+            - artisan
+            - queue:work
+            - --sleep=3
+            - --tries=3
+            - --max-time=3600
+
+        volumes:
+            - app_storage:/var/www/storage
+            - app_bootstrap_cache:/var/www/bootstrap/cache
+
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+        networks:
+            - lms-internal
+
+        restart: unless-stopped
+
+
+    # ==================================================
+    # Laravel Scheduler
+    # ==================================================
+
+    scheduler:
+        image: lms-app:latest
+
+        container_name: lms-scheduler
+
+        env_file:
+            - .env
+
+        command:
+            - php
+            - artisan
+            - schedule:work
+
+        volumes:
+            - app_storage:/var/www/storage
+            - app_bootstrap_cache:/var/www/bootstrap/cache
+
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+        networks:
+            - lms-internal
+
+        restart: unless-stopped
+
+
+    # ==================================================
+    # MariaDB
+    # ==================================================
+
+    db:
+        image: mariadb:11
+
+        container_name: lms-db
+
+        env_file:
+            - .env
+
+        expose:
+            - "3306"
+
+        volumes:
+            - db_data:/var/lib/mysql
+
+        networks:
+            - lms-internal
+
+        healthcheck:
+            test:
+              [
+                  "CMD-SHELL",
+                  "mariadb-admin ping -h localhost -u root -p$${MARIADB_ROOT_PASSWORD}"
+              ]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 30s
+
+        restart: unless-stopped
+
+
+    # ==================================================
+    # Redis
+    # ==================================================
+
+    redis:
+        image: redis:7-alpine
+
+        container_name: lms-redis
+
+        env_file:
+            - .env
+
+        expose:
+            - "6379"
+
+        command:
+            - sh
+            - -c
+            - |
+                if [ -n "$${REDIS_PASSWORD}" ]; then
+                    exec redis-server \
+                        --requirepass "$${REDIS_PASSWORD}" \
+                        --appendonly yes
+                else
+                    exec redis-server \
+                        --appendonly yes
+                fi
+
+        volumes:
+            - redis_data:/data
+
+        networks:
+            - lms-internal
+
+        healthcheck:
+            test:
+              [
+                  "CMD-SHELL",
+                  "redis-cli -a \"$${REDIS_PASSWORD}\" ping 2>/dev/null | grep PONG"
+              ]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+
+        restart: unless-stopped
+
+# ====================================================
+# Networks
+# ====================================================
 
 networks:
-  lms:
-    driver: bridge
+    lms-internal:
+        driver: bridge
+# ====================================================
+# Persistent volumes
+# ====================================================
 
 volumes:
-  db_data:
-  app_storage:
-  app_bootstrap_cache:
+    app_storage:
+    app_bootstrap_cache:
+    db_data:
+    redis_data:
