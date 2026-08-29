@@ -20,11 +20,11 @@ if [ ! -L public/storage ]; then
     su-exec www-data php artisan storage:link
 fi
 
-su-exec www-data php artisan package:discover --ansi
-su-exec www-data php artisan optimize:clear
-
 echo "Running database migrations..."
 su-exec www-data php artisan migrate --force
+
+su-exec www-data php artisan package:discover --ansi
+su-exec www-data php artisan optimize:clear
 
 su-exec www-data php artisan optimize
 
