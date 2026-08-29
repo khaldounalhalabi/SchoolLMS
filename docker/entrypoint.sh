@@ -20,7 +20,7 @@ rm -f \
     bootstrap/cache/routes-v7.php
 
 if [ ! -L public/storage ]; then
-    su-exec www-data php artisan storage:link
+    php artisan storage:link
 fi
 
 php artisan package:discover --ansi
