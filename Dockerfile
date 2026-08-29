@@ -43,7 +43,7 @@ RUN apk add --no-cache \
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
 # Install and enable the Redis PHP extension (used for cache/sessions/queues)
-RUN apk add --no-cache --virtual .build-deps autoconf g++ make \
+RUN apk add --no-cache --virtual .build-deps autoconf g++ make su-exec \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apk del .build-deps
